@@ -10,6 +10,9 @@ notes go to a **trash** that can be restored.
 
 - API: https://team-notes-api.onrender.com
 - Interactive docs (Swagger UI): https://team-notes-api.onrender.com/docs
+- Web app: https://team-notes-api.onrender.com/app. A small demo client for the same API (a single
+  HTML file with no build step) to create teams and notes, edit them, and use the trash from the
+  browser.
 
 Please read these caveats before trying it:
 
@@ -56,7 +59,8 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000/docs for the interactive API docs. The database is a SQLite file,
+Open http://127.0.0.1:8000/docs for the interactive API docs, or http://127.0.0.1:8000/app for the
+small web app. The database is a SQLite file,
 `notes.db`, in the current directory (override it with the `DATABASE_URL` environment variable).
 
 Optional demo data (two teams and 12 notes, one of them in the trash). The database must already be
@@ -106,6 +110,9 @@ endpoints; the full schema is at `/docs`.
 
 Notes on behavior:
 
+- **Web app.** `GET /app` serves a small single-page client (one HTML file in `app/static/`, no
+  build step) that calls the same `/api/v1` endpoints. It is an HTML page, not a JSON endpoint, so
+  it is not in the table and not in the OpenAPI schema.
 - **Optimistic concurrency.** A note's `ETag` is its `version` in quotes, for example `"3"`.
   `PATCH /notes/{id}` must send `If-Match` with the `ETag` from your last `GET` or `PATCH`. A missing
   header gives **428**. A version that no longer matches (someone else edited first), or a malformed

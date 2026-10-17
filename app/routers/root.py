@@ -20,11 +20,13 @@ _PAGE = """<!doctype html>
 </head>
 <body>
 <h1>Team Notes API</h1>
-<p>A small REST service for notes shared across team spaces. This is the API root: there is
-no web app here, so start with one of the links below.</p>
+<p>A small REST service for notes shared across team spaces. This is the API root, so start
+with one of the links below.</p>
 
 <h2>Where to go</h2>
 <ul>
+  <li><a href="/app"><code>/app</code></a>: the notes web app: create teams and notes in the
+      browser.</li>
   <li><a href="/docs"><code>/docs</code></a>: interactive API docs. Try every endpoint
       from here.</li>
   <li><a href="/api/v1/teams"><code>/api/v1/teams</code></a>: the demo teams
