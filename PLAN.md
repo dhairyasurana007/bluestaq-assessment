@@ -50,7 +50,7 @@ Original assignment: deliver a runnable REST service and README in a version-con
 ### 0.5 Progress tracker
 | Phase | Task | Commit message | Done |
 |---|---|---|---|
-| MVP | M0 | `chore: bootstrap repository, minimal health app and Render blueprint` | [ ] |
+| MVP | M0 | `chore: bootstrap repository, minimal health app and Render blueprint` | [x] |
 | MVP | M1 | `chore: scaffold FastAPI app with unit/e2e harnesses and CI` | [ ] |
 | MVP | M2 | `ci: gate Render deploys on passing CI checks` | [ ] |
 | MVP | M3 | `feat(teams): team spaces, database foundation and problem+json errors` | [ ] |
