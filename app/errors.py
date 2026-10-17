@@ -25,6 +25,14 @@ class NotFoundError(AppError):
     status_code = 404
 
 
+class PreconditionFailedError(AppError):
+    status_code = 412
+
+
+class PreconditionRequiredError(AppError):
+    status_code = 428
+
+
 def _reason(status: int) -> str:
     try:
         return HTTPStatus(status).phrase

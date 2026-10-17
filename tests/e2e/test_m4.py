@@ -43,6 +43,12 @@ def make_note(api: APIRequestContext, team_id: str, **fields) -> dict:
     return resp.json()
 
 
+def patch_note(api: APIRequestContext, note: dict, data: dict, version: int | None = None):
+    """PATCH with a correct If-Match (M5): the note's version from its last response."""
+    etag = f'"{note["version"] if version is None else version}"'
+    return api.patch(f"/api/v1/notes/{note['id']}", data=data, headers={"If-Match": etag})
+
+
 # --- create -----------------------------------------------------------------------------
 
 
@@ -181,7 +187,7 @@ def test_list_notes_by_team_newest_updated_first(api: APIRequestContext):
     second = make_note(api, team["id"])
     third = make_note(api, team["id"])
     # Editing the oldest note moves it to the front.
-    assert api.patch(f"/api/v1/notes/{first['id']}", data={"body": "edited"}).status == 200
+    assert patch_note(api, first, {"body": "edited"}).status == 200
 
     resp = api.get("/api/v1/notes", params={"team_id": team["id"]})
     assert resp.status == 200
@@ -272,7 +278,7 @@ def test_list_notes_invalid_limit_is_422(api: APIRequestContext, limit: str):
 def test_patch_title_only(api: APIRequestContext):
     team = make_team(api)
     note = make_note(api, team["id"], body="original body", author_name="Ada")
-    resp = api.patch(f"/api/v1/notes/{note['id']}", data={"title": "  New title "})
+    resp = patch_note(api, note, {"title": "  New title "})
     assert resp.status == 200
     updated = resp.json()
     assert set(updated) == NOTE_KEYS
@@ -292,7 +298,7 @@ def test_patch_title_only(api: APIRequestContext):
 def test_patch_body_only_including_empty(api: APIRequestContext):
     team = make_team(api)
     note = make_note(api, team["id"], body="something")
-    resp = api.patch(f"/api/v1/notes/{note['id']}", data={"body": ""})
+    resp = patch_note(api, note, {"body": ""})
     assert resp.status == 200
     updated = resp.json()
     assert updated["body"] == ""
@@ -303,7 +309,7 @@ def test_patch_body_only_including_empty(api: APIRequestContext):
 def test_patch_both_fields(api: APIRequestContext):
     team = make_team(api)
     note = make_note(api, team["id"])
-    resp = api.patch(f"/api/v1/notes/{note['id']}", data={"title": "T2", "body": "B2"})
+    resp = patch_note(api, note, {"title": "T2", "body": "B2"})
     assert resp.status == 200
     updated = resp.json()
     assert (updated["title"], updated["body"], updated["version"]) == ("T2", "B2", 2)
@@ -314,7 +320,7 @@ def test_patch_bumps_version_by_one_each_time(api: APIRequestContext):
     note = make_note(api, team["id"])
     previous = _ts(note["updated_at"])
     for expected in (2, 3, 4):
-        resp = api.patch(f"/api/v1/notes/{note['id']}", data={"body": f"edit {expected}"})
+        resp = patch_note(api, note, {"body": f"edit {expected}"}, version=expected - 1)
         assert resp.status == 200
         updated = resp.json()
         assert updated["version"] == expected
@@ -326,11 +332,18 @@ def test_patch_bumps_version_by_one_each_time(api: APIRequestContext):
 
 
 def test_patch_unknown_note_is_404(api: APIRequestContext):
-    assert_problem(api.patch(f"/api/v1/notes/{uuid.uuid4()}", data={"title": "x"}), 404)
+    assert_problem(
+        api.patch(
+            f"/api/v1/notes/{uuid.uuid4()}", data={"title": "x"}, headers={"If-Match": '"1"'}
+        ),
+        404,
+    )
 
 
 def test_patch_non_uuid_is_422(api: APIRequestContext):
-    assert_problem(api.patch("/api/v1/notes/nope", data={"title": "x"}), 422)
+    assert_problem(
+        api.patch("/api/v1/notes/nope", data={"title": "x"}, headers={"If-Match": '"1"'}), 422
+    )
 
 
 @pytest.mark.parametrize(
@@ -353,7 +366,7 @@ def test_patch_non_uuid_is_422(api: APIRequestContext):
 def test_patch_invalid_body_is_422_and_changes_nothing(api: APIRequestContext, payload: dict):
     team = make_team(api)
     note = make_note(api, team["id"], body="stay", author_name="Ada")
-    body = assert_problem(api.patch(f"/api/v1/notes/{note['id']}", data=payload), 422)
+    body = assert_problem(patch_note(api, note, payload), 422)
     assert body["errors"], body
     assert api.get(f"/api/v1/notes/{note['id']}").json() == note
 
@@ -361,9 +374,7 @@ def test_patch_invalid_body_is_422_and_changes_nothing(api: APIRequestContext, p
 def test_patch_length_bounds_accepted(api: APIRequestContext):
     team = make_team(api)
     note = make_note(api, team["id"])
-    resp = api.patch(
-        f"/api/v1/notes/{note['id']}", data={"title": "t" * 200, "body": "b" * 100_000}
-    )
+    resp = patch_note(api, note, {"title": "t" * 200, "body": "b" * 100_000})
     assert resp.status == 200, resp.text()
 
 
@@ -380,7 +391,7 @@ def test_delete_note(api: APIRequestContext):
     assert resp.body() == b""
 
     assert_problem(api.get(f"/api/v1/notes/{note['id']}"), 404)
-    assert_problem(api.patch(f"/api/v1/notes/{note['id']}", data={"title": "x"}), 404)
+    assert_problem(patch_note(api, note, {"title": "x"}), 404)
     assert_problem(api.delete(f"/api/v1/notes/{note['id']}"), 404)
     items = api.get("/api/v1/notes", params={"team_id": team["id"]}).json()["items"]
     assert [n["id"] for n in items] == [keep["id"]]

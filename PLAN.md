@@ -55,7 +55,7 @@ Original assignment: deliver a runnable REST service and README in a version-con
 | MVP | M2 | `ci: gate Render deploys on passing CI checks` | [x] |
 | MVP | M3 | `feat(teams): team spaces, database foundation and problem+json errors` | [x] |
 | MVP | M4 | `feat(notes): note CRUD within team spaces` | [x] |
-| MVP | M5 | `feat(notes): optimistic concurrency with ETag and If-Match` | [ ] |
+| MVP | M5 | `feat(notes): optimistic concurrency with ETag and If-Match` | [x] |
 | MVP | M6 | `feat(notes): trash and restore for deleted notes` | [ ] |
 | MVP | M7 | `feat(demo): seed script and demo data on Render startup` | [ ] |
 | MVP | M8 | `docs: README with quick start, live demo and API tour` | [ ] |

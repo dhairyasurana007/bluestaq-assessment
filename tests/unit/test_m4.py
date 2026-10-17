@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 TEAMS = "/api/v1/teams"
 NOTES = "/api/v1/notes"
 PROBLEM = "application/problem+json"
+H1 = {"If-Match": '"1"'}  # M5: PATCH needs a matching If-Match (all notes here are at v1)
 NOTE_KEYS = {
     "id",
     "team_id",
@@ -369,7 +370,12 @@ def test_list_notes_order_follows_updated_at_after_patch(client, team_factory, n
     tiny_sleep()
     second = note_factory(client, team["id"], title="second")
     tiny_sleep()
-    assert client.patch(f"{NOTES}/{first['id']}", json={"title": "first edited"}).status_code == 200
+    assert (
+        client.patch(
+            f"{NOTES}/{first['id']}", headers=H1, json={"title": "first edited"}
+        ).status_code
+        == 200
+    )
     ids = [n["id"] for n in list_notes(client, team["id"])["items"]]
     assert ids == [first["id"], second["id"]]
 
@@ -440,7 +446,7 @@ def test_list_notes_limit_100_returns_more_than_default(client, team_factory, no
 def test_patch_title_only_updates_only_title(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"], title="Old", body="keep body", author_name="Ann")
-    resp = client.patch(f"{NOTES}/{note['id']}", json={"title": "New"})
+    resp = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"title": "New"})
     assert resp.status_code == 200, resp.text
     data = resp.json()
     assert data["title"] == "New"
@@ -453,7 +459,7 @@ def test_patch_title_only_updates_only_title(client, team_factory, note_factory)
 def test_patch_body_only_updates_only_body(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"], title="Keep title", body="old")
-    resp = client.patch(f"{NOTES}/{note['id']}", json={"body": "new"})
+    resp = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"body": "new"})
     assert resp.status_code == 200, resp.text
     assert resp.json()["title"] == "Keep title"
     assert resp.json()["body"] == "new"
@@ -462,7 +468,7 @@ def test_patch_body_only_updates_only_body(client, team_factory, note_factory):
 def test_patch_both_fields(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"], title="t", body="b")
-    resp = client.patch(f"{NOTES}/{note['id']}", json={"title": "T2", "body": "B2"})
+    resp = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"title": "T2", "body": "B2"})
     assert resp.status_code == 200, resp.text
     assert (resp.json()["title"], resp.json()["body"]) == ("T2", "B2")
 
@@ -470,7 +476,7 @@ def test_patch_both_fields(client, team_factory, note_factory):
 def test_patch_body_to_empty_string_is_allowed(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"], title="t", body="something")
-    resp = client.patch(f"{NOTES}/{note['id']}", json={"body": ""})
+    resp = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"body": ""})
     assert resp.status_code == 200, resp.text
     assert resp.json()["body"] == ""
     assert resp.json()["title"] == "t"
@@ -479,7 +485,7 @@ def test_patch_body_to_empty_string_is_allowed(client, team_factory, note_factor
 def test_patch_title_is_trimmed(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"], title="t")
-    resp = client.patch(f"{NOTES}/{note['id']}", json={"title": "  spaced  "})
+    resp = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"title": "  spaced  "})
     assert resp.status_code == 200, resp.text
     assert resp.json()["title"] == "spaced"
 
@@ -489,7 +495,11 @@ def test_patch_bumps_version_by_one_with_new_etag(client, team_factory, note_fac
     note = note_factory(client, team["id"], title="v")
     assert note["version"] == 1
     for expected in (2, 3, 4):
-        resp = client.patch(f"{NOTES}/{note['id']}", json={"title": f"v{expected}"})
+        resp = client.patch(
+            f"{NOTES}/{note['id']}",
+            headers={"If-Match": f'"{expected - 1}"'},
+            json={"title": f"v{expected}"},
+        )
         assert resp.status_code == 200, resp.text
         assert resp.json()["version"] == expected
         assert resp.headers["etag"] == f'"{expected}"'
@@ -502,7 +512,7 @@ def test_patch_updates_updated_at_and_keeps_created_at(client, team_factory, not
     team = team_factory(client)
     note = note_factory(client, team["id"], title="time")
     tiny_sleep()
-    resp = client.patch(f"{NOTES}/{note['id']}", json={"body": "changed"})
+    resp = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"body": "changed"})
     assert resp.status_code == 200, resp.text
     data = resp.json()
     assert data["created_at"] == note["created_at"]
@@ -512,7 +522,7 @@ def test_patch_updates_updated_at_and_keeps_created_at(client, team_factory, not
 def test_patch_persists_changes(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"], title="before", body="b0")
-    client.patch(f"{NOTES}/{note['id']}", json={"title": "after"})
+    client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"title": "after"})
     got = client.get(f"{NOTES}/{note['id']}").json()
     assert got["title"] == "after"
     assert got["body"] == "b0"
@@ -522,7 +532,7 @@ def test_patch_persists_changes(client, team_factory, note_factory):
 def test_patch_empty_object_is_422_and_changes_nothing(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"], title="same")
-    resp = client.patch(f"{NOTES}/{note['id']}", json={})
+    resp = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={})
     assert_problem(resp, 422)
     assert client.get(f"{NOTES}/{note['id']}").json()["version"] == 1
 
@@ -530,7 +540,7 @@ def test_patch_empty_object_is_422_and_changes_nothing(client, team_factory, not
 def test_patch_author_name_is_422_not_editable(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"], title="same", author_name="Ann")
-    resp = client.patch(f"{NOTES}/{note['id']}", json={"author_name": "Bob"})
+    resp = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"author_name": "Bob"})
     assert_422_loc(resp, ["body", "author_name"])
     got = client.get(f"{NOTES}/{note['id']}").json()
     assert got["author_name"] == "Ann"
@@ -542,7 +552,9 @@ def test_patch_with_title_and_author_name_is_422_and_applies_nothing(
 ):
     team = team_factory(client)
     note = note_factory(client, team["id"], title="orig", author_name="Ann")
-    resp = client.patch(f"{NOTES}/{note['id']}", json={"title": "new", "author_name": "Bob"})
+    resp = client.patch(
+        f"{NOTES}/{note['id']}", headers=H1, json={"title": "new", "author_name": "Bob"}
+    )
     assert_422_loc(resp, ["body", "author_name"])
     got = client.get(f"{NOTES}/{note['id']}").json()
     assert got["title"] == "orig"
@@ -552,28 +564,32 @@ def test_patch_with_title_and_author_name_is_422_and_applies_nothing(
 def test_patch_unknown_field_is_422(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"])
-    assert_422_loc(client.patch(f"{NOTES}/{note['id']}", json={"bogus": 1}), ["body", "bogus"])
+    assert_422_loc(
+        client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"bogus": 1}), ["body", "bogus"]
+    )
 
 
 @pytest.mark.parametrize("title", ["", "   "])
 def test_patch_empty_title_is_422(client, team_factory, note_factory, title):
     team = team_factory(client)
     note = note_factory(client, team["id"], title="keep")
-    assert_422_loc(client.patch(f"{NOTES}/{note['id']}", json={"title": title}), ["body", "title"])
+    assert_422_loc(
+        client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"title": title}), ["body", "title"]
+    )
     assert client.get(f"{NOTES}/{note['id']}").json()["title"] == "keep"
 
 
 def test_patch_title_201_chars_is_422(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"])
-    resp = client.patch(f"{NOTES}/{note['id']}", json={"title": "t" * 201})
+    resp = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"title": "t" * 201})
     assert_422_loc(resp, ["body", "title"])
 
 
 def test_patch_title_200_chars_ok(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"])
-    resp = client.patch(f"{NOTES}/{note['id']}", json={"title": "t" * 200})
+    resp = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"title": "t" * 200})
     assert resp.status_code == 200, resp.text
 
 
@@ -581,22 +597,25 @@ def test_patch_body_100001_chars_is_422_and_100000_ok(client, team_factory, note
     team = team_factory(client)
     note = note_factory(client, team["id"])
     assert_422_loc(
-        client.patch(f"{NOTES}/{note['id']}", json={"body": "b" * 100_001}), ["body", "body"]
+        client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"body": "b" * 100_001}),
+        ["body", "body"],
     )
-    ok = client.patch(f"{NOTES}/{note['id']}", json={"body": "b" * 100_000})
+    ok = client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"body": "b" * 100_000})
     assert ok.status_code == 200, ok.text
 
 
 def test_patch_unknown_note_is_404_problem(client, team_factory, note_factory):
     real = note_factory(client, team_factory(client)["id"])
-    assert client.patch(f"{NOTES}/{real['id']}", json={"title": "ok"}).status_code == 200
+    assert (
+        client.patch(f"{NOTES}/{real['id']}", headers=H1, json={"title": "ok"}).status_code == 200
+    )
     missing = str(uuid.uuid4())
-    resp = client.patch(f"{NOTES}/{missing}", json={"title": "x"})
+    resp = client.patch(f"{NOTES}/{missing}", headers=H1, json={"title": "x"})
     assert_problem(resp, 404, instance=f"{NOTES}/{missing}")
 
 
 def test_patch_non_uuid_id_is_422(client):
-    assert_problem(client.patch(f"{NOTES}/nope", json={"title": "x"}), 422)
+    assert_problem(client.patch(f"{NOTES}/nope", headers=H1, json={"title": "x"}), 422)
 
 
 # ------------------------------------------------------------------ DELETE
@@ -642,7 +661,7 @@ def test_patch_deleted_note_is_404(client, team_factory, note_factory):
     team = team_factory(client)
     note = note_factory(client, team["id"])
     client.delete(f"{NOTES}/{note['id']}")
-    assert_problem(client.patch(f"{NOTES}/{note['id']}", json={"title": "x"}), 404)
+    assert_problem(client.patch(f"{NOTES}/{note['id']}", headers=H1, json={"title": "x"}), 404)
 
 
 # ------------------------------------------------------------------ team deletion cascade
