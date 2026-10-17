@@ -11,12 +11,13 @@ import sys
 import tempfile
 import time
 import urllib.request
-import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from playwright.sync_api import APIRequestContext, sync_playwright
+
+from tests.e2e.helpers import make_team  # noqa: F401  (re-exported for convenience)
 
 ROOT = Path(__file__).resolve().parents[2]
 SERVER_LOG = Path(__file__).resolve().parent / ".server.log"
@@ -92,10 +93,3 @@ def api(base_url: str) -> Iterator[APIRequestContext]:
         ctx = p.request.new_context(base_url=base_url)
         yield ctx
         ctx.dispose()
-
-
-def make_team(api: APIRequestContext) -> dict:
-    """Create a team with a unique name (used from M3 onward)."""
-    resp = api.post("/api/v1/teams", data={"name": f"e2e-{uuid.uuid4().hex[:12]}"})
-    assert resp.status == 201, resp.text()
-    return resp.json()
