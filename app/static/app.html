@@ -498,6 +498,8 @@
     #toasts { inset: auto var(--s3) var(--s3) var(--s3); width: auto; }
   }
   @media (max-width: 420px) {
+    .topbar { gap: var(--s2); }
+    .brand { gap: 6px; white-space: nowrap; }
     .badge { padding: 0 6px; }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -521,5 +523,1284 @@
   </button>
   <a class="brand" href="/app">
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect width="24" height="24" rx="6" fill="var(--accent)"/>
-      <path d="M7 8.5h10M7 12h10M7 15.5h6" s
+      <rect width="24" height="24" rx="6" style="fill: var(--accent)"/>
+      <path d="M7 8.5h10M7 12h10M7 15.5h6" style="stroke: var(--accent-text); fill: none"
+            stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    <span>Team Notes</span>
+  </a>
+  <span class="badge" title="No accounts: anyone can edit or delete anything, and the data resets on every deploy.">Open demo</span>
+  <span class="top-spacer"></span>
+  <nav class="top-links" aria-label="Project links">
+    <a href="/docs">API docs</a>
+    <a href="https://github.com/dhairyasurana007/bluestaq-assessment#readme">README</a>
+  </nav>
+  <button type="button" id="theme-btn" class="icon-btn" aria-label="Switch theme">
+    <span class="ico" id="theme-sun" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span>
+    <span class="ico" id="theme-moon" hidden><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></span>
+  </button>
+</header>
+
+<div class="shell">
+  <div id="scrim" hidden></div>
+  <aside id="sidebar" class="sidebar" aria-label="Teams">
+    <div class="side-head">
+      <h2>Teams</h2>
+      <button type="button" id="new-team-btn" class="btn sm primary" data-icon="plus">New team</button>
+    </div>
+    <ul id="team-list" class="team-list"></ul>
+    <div class="side-foot">
+      <div class="side-links">
+        <a href="/docs">API docs</a>
+        <a href="https://github.com/dhairyasurana007/bluestaq-assessment#readme">README</a>
+      </div>
+      Open demo: no accounts, anyone can edit, and the data resets on every deploy.
+    </div>
+  </aside>
+
+  <main id="main" tabindex="-1">
+    <div id="empty-main" hidden></div>
+
+    <div id="team-view" hidden>
+      <div class="team-head">
+        <span id="team-avatar"></span>
+        <h1><button type="button" id="team-title" class="title-btn" title="Rename team"></button></h1>
+        <button type="button" id="team-more" class="icon-btn" aria-haspopup="menu"
+                aria-expanded="false" aria-label="Team actions" data-icon="more"></button>
+      </div>
+
+      <div class="toolbar">
+        <div class="seg" role="tablist" aria-label="Team views">
+          <button type="button" role="tab" id="tab-notes" aria-controls="panel-notes"
+                  aria-selected="true">Notes <span class="count num" id="count-notes">-</span></button>
+          <button type="button" role="tab" id="tab-trash" aria-controls="panel-trash"
+                  aria-selected="false" tabindex="-1">Trash <span class="count num" id="count-trash">-</span></button>
+        </div>
+        <div class="search">
+          <span class="ico" data-icon="search"></span>
+          <label for="search" class="sr-only">Filter notes by title or text</label>
+          <input id="search" class="input" type="search" placeholder="Filter notes (press /)"
+                 autocomplete="off">
+        </div>
+        <button type="button" id="new-note-btn" class="btn primary" data-icon="plus">New note</button>
+      </div>
+
+      <section id="panel-notes" role="tabpanel" aria-labelledby="tab-notes">
+        <ul id="notes-grid" class="grid"></ul>
+      </section>
+      <section id="panel-trash" role="tabpanel" aria-labelledby="tab-trash" hidden>
+        <ul id="trash-grid" class="grid"></ul>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="menu" class="menu" role="menu" hidden></div>
+<div id="toasts" popover="manual" role="status" aria-live="polite"></div>
+
+<!-- Note editor: right-hand slide-over on desktop, full screen on phones. -->
+<dialog id="editor-dlg" class="sheet" aria-labelledby="ed-heading">
+  <form id="ed-form" novalidate>
+    <div class="sheet-head">
+      <div>
+        <h2 id="ed-heading">Edit note</h2>
+        <div class="sheet-meta" id="ed-meta"></div>
+      </div>
+      <span class="dirty" id="ed-dirty" hidden>Unsaved changes</span>
+      <button type="button" id="ed-close" class="icon-btn" aria-label="Close editor" data-icon="close"></button>
+    </div>
+    <div class="sheet-body">
+      <div id="ed-conflict" class="callout" role="alert" hidden></div>
+      <label for="ed-title" class="sr-only">Title</label>
+      <input id="ed-title" class="title-input" type="text" placeholder="Note title" maxlength="200"
+             autocomplete="off" aria-describedby="ed-title-foot">
+      <div class="field-foot" id="ed-title-foot">
+        <span class="field-error" id="ed-title-err"></span>
+        <span class="counter num" id="ed-title-count" hidden></span>
+      </div>
+
+      <div id="ed-author-row" hidden>
+        <label for="ed-author" class="label">Author name (optional)</label>
+        <input id="ed-author" class="input" type="text" maxlength="100" autocomplete="off"
+               placeholder="Who is writing this?">
+      </div>
+
+      <label for="ed-body" class="label">Note</label>
+      <textarea id="ed-body" class="body-input" maxlength="100000"
+                placeholder="Write something..." aria-describedby="ed-body-foot"></textarea>
+      <div class="field-foot" id="ed-body-foot">
+        <span></span>
+        <span class="counter num" id="ed-body-count" hidden></span>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <button type="button" id="ed-delete" class="btn danger ghost" data-icon="trash">Delete</button>
+      <span class="spacer"></span>
+      <span class="hint">Ctrl/Cmd + Enter to save</span>
+      <button type="button" id="ed-cancel" class="btn">Cancel</button>
+      <button type="submit" id="ed-save" class="btn primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="team-dlg" class="modal" aria-labelledby="tm-heading">
+  <form id="tm-form" novalidate>
+    <h2 id="tm-heading">New team</h2>
+    <label for="tm-name" class="label">Team name</label>
+    <input id="tm-name" class="input" type="text" maxlength="100" autocomplete="off">
+    <div class="field-foot"><span class="field-error" id="tm-err"></span></div>
+    <div class="modal-actions">
+      <button type="button" id="tm-cancel" class="btn">Cancel</button>
+      <button type="submit" id="tm-save" class="btn primary">Create team</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="confirm-dlg" class="modal" aria-labelledby="cf-title" aria-describedby="cf-msg">
+  <h2 id="cf-title"></h2>
+  <p id="cf-msg" class="muted"></p>
+  <div class="modal-actions">
+    <button type="button" id="cf-cancel" class="btn" autofocus>Cancel</button>
+    <button type="button" id="cf-ok" class="btn primary">Confirm</button>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  // =====================================================================
+  // Constants
+  // =====================================================================
+  const API = '/api/v1';
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const TITLE_MAX = 200;
+  const BODY_MAX = 100000;
+  const SLOW_MS = 4000;
+  const THEME_KEY = 'tn-theme';
+
+  // =====================================================================
+  // Static icon and illustration markup. These constants contain no user data,
+  // which is the only reason innerHTML is used for them. All user text goes
+  // through textContent / text nodes.
+  // =====================================================================
+  const ICONS = {
+    menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    more: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
+    close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+    trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
+    restore: '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg>',
+    edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>',
+    alert: '<svg viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3zM12 10v4M12 17.5v.01"/></svg>',
+    check: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>',
+    info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.01"/></svg>',
+  };
+  const ILLUS = {
+    team: '<svg viewBox="0 0 120 96" aria-hidden="true"><rect class="i-fill" x="26" y="12" width="76" height="58" rx="8"/><rect class="i-fill" x="14" y="24" width="76" height="58" rx="8"/><rect class="i-accent" x="26" y="38" width="34" height="6" rx="3"/><rect class="i-line" x="26" y="52" width="52" height="4" rx="2"/><rect class="i-line" x="26" y="62" width="40" height="4" rx="2"/></svg>',
+    note: '<svg viewBox="0 0 120 96" aria-hidden="true"><rect class="i-fill" x="30" y="10" width="60" height="76" rx="8"/><rect class="i-line" x="42" y="28" width="36" height="4" rx="2"/><rect class="i-line" x="42" y="40" width="28" height="4" rx="2"/><circle class="i-accent" cx="84" cy="70" r="14"/><path d="M84 63v14M77 70h14" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/></svg>',
+    trash: '<svg viewBox="0 0 120 96" aria-hidden="true"><rect class="i-fill" x="36" y="30" width="48" height="52" rx="8"/><rect class="i-fill" x="30" y="20" width="60" height="10" rx="5"/><path class="i-stroke" d="M50 14h20"/><rect class="i-line" x="50" y="42" width="4" height="28" rx="2"/><rect class="i-line" x="66" y="42" width="4" height="28" rx="2"/></svg>',
+    search: '<svg viewBox="0 0 120 96" aria-hidden="true"><circle class="i-fill" cx="54" cy="44" r="26"/><path class="i-stroke" d="M74 64l18 18"/><rect class="i-line" x="40" y="40" width="28" height="4" rx="2"/><rect class="i-line" x="44" y="50" width="20" height="4" rx="2"/></svg>',
+  };
+
+  // =====================================================================
+  // State
+  // =====================================================================
+  const state = {
+    teams: [], teamsLoaded: false, teamsFailed: false,
+    teamId: null, tab: 'notes', query: '',
+    notes: [], trash: [], loaded: { notes: false, trash: false },
+    editor: null, // { mode, id, note, etag, base, conflict, saving }
+    returnFocusNoteId: null,
+  };
+
+  // =====================================================================
+  // DOM helpers
+  // =====================================================================
+  const $ = (id) => document.getElementById(id);
+
+  function el(tag, props = {}, ...children) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(props)) {
+      if (value === null || value === undefined || value === false) continue;
+      if (key === 'class') node.className = value;
+      else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+      else node.setAttribute(key, value === true ? '' : value);
+    }
+    for (const child of children) {
+      if (child === null || child === undefined || child === false) continue;
+      node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+    }
+    return node;
+  }
+
+  function icon(name, extraClass) {
+    const span = document.createElement('span');
+    span.className = 'ico' + (extraClass ? ' ' + extraClass : '');
+    span.setAttribute('aria-hidden', 'true');
+    span.innerHTML = ICONS[name]; // static constant
+    return span;
+  }
+
+  function illustration(name) {
+    const span = document.createElement('span');
+    span.className = 'illus';
+    span.innerHTML = ILLUS[name]; // static constant
+    return span;
+  }
+
+  // Elements that declare data-icon get their icon prepended once at startup.
+  function hydrateIcons() {
+    for (const node of document.querySelectorAll('[data-icon]')) {
+      const ico = icon(node.getAttribute('data-icon'));
+      if (node.classList.contains('ico')) { node.className = ico.className; node.setAttribute('aria-hidden', 'true'); node.innerHTML = ico.innerHTML; }
+      else node.prepend(ico);
+    }
+  }
+
+  function emptyState({ art, title, text, action, compact }) {
+    const box = el('div', { class: 'empty' + (compact ? ' compact' : '') },
+      illustration(art), el('h3', {}, title), el('p', {}, text));
+    if (action) {
+      box.append(el('button', { type: 'button', class: 'btn primary', onclick: action.fn },
+        icon('plus'), action.label));
+    }
+    return box;
+  }
+
+  // ---------- time ----------
+  function normalizeIso(iso) {
+    // The API sends UTC; a timestamp without an offset would otherwise be read as local time.
+    return /(Z|[+-]\d\d:?\d\d)$/.test(iso) ? iso : iso + 'Z';
+  }
+
+  function timeAgo(iso) {
+    const t = Date.parse(normalizeIso(iso));
+    if (Number.isNaN(t)) return '';
+    const s = Math.floor((Date.now() - t) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + ' min ago';
+    if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+    if (s < 30 * 86400) return Math.floor(s / 86400) + ' d ago';
+    return new Date(t).toLocaleDateString();
+  }
+
+  function timeEl(iso) {
+    const normalized = normalizeIso(iso);
+    return el('time', { datetime: normalized, title: normalized, 'data-ago': '' }, timeAgo(iso));
+  }
+
+  // ---------- avatars ----------
+  function hueFor(text) {
+    let h = 0;
+    for (const ch of text) h = (h * 31 + ch.codePointAt(0)) % 360;
+    return h;
+  }
+
+  function initials(name) {
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return '?';
+    const first = Array.from(words[0])[0];
+    const last = words.length > 1 ? Array.from(words[words.length - 1])[0] : '';
+    return (first + last).toUpperCase();
+  }
+
+  function avatar(name, size) {
+    const node = el('span', { class: 'avatar' + (size ? ' ' + size : ''), 'aria-hidden': 'true' },
+      initials(name));
+    node.style.setProperty('--h', String(hueFor(name)));
+    return node;
+  }
+
+  // =====================================================================
+  // Toasts (the container is a popover so it is drawn above open dialogs)
+  // =====================================================================
+  const toastBox = $('toasts');
+
+  function syncToasts() {
+    try {
+      const open = toastBox.matches(':popover-open');
+      if (toastBox.children.length) {
+        if (open) toastBox.hidePopover(); // re-show to move to the front of the top layer
+        toastBox.showPopover();
+      } else if (open) {
+        toastBox.hidePopover();
+      }
+    } catch { /* popover unsupported: the box is a plain fixed element */ }
+  }
+
+  function toast({ kind = 'info', title, lines = [], action = null, timeout, closable = true }) {
+    const iconName = { success: 'check', error: 'alert', info: 'info' }[kind];
+    const body = el('div', { class: 'toast-body' }, el('div', { class: 'toast-title' }, title));
+    if (lines.length === 1) body.append(el('p', {}, lines[0]));
+    else if (lines.length > 1) body.append(el('ul', {}, ...lines.map((line) => el('li', {}, line))));
+    const node = el('div', { class: 'toast ' + kind, role: kind === 'error' ? 'alert' : null },
+      icon(iconName), body);
+    let timer = null;
+    const dismiss = () => { clearTimeout(timer); node.remove(); syncToasts(); };
+    if (action) {
+      body.append(el('div', { class: 'toast-actions' },
+        el('button', { type: 'button', class: 'btn sm', onclick: () => { dismiss(); action.fn(); } },
+          action.label)));
+    }
+    if (closable) {
+      node.append(el('button', { type: 'button', class: 'icon-btn sm', 'aria-label': 'Dismiss', onclick: dismiss },
+        icon('close')));
+    }
+    while (toastBox.children.length >= 4) toastBox.firstElementChild.remove();
+    toastBox.append(node);
+    syncToasts();
+    const ms = timeout === undefined ? (kind === 'error' ? 9000 : 4000) : timeout;
+    if (ms > 0) timer = setTimeout(dismiss, ms);
+    return { dismiss };
+  }
+
+  // =====================================================================
+  // API layer
+  // =====================================================================
+  class ApiError extends Error {
+    constructor(status, problem) {
+      super(problem.detail || problem.title || 'Request failed (HTTP ' + status + ').');
+      this.status = status;
+      this.problem = problem;
+    }
+  }
+  class NetworkError extends Error {}
+
+  let pending = 0;
+  let slowCount = 0;
+  let slowToast = null;
+
+  function setBusy(delta) {
+    pending += delta;
+    $('progress').hidden = pending <= 0;
+  }
+
+  function slowStart() {
+    slowCount += 1;
+    if (!slowToast) {
+      slowToast = toast({
+        kind: 'info', title: 'Waking up the free server, one moment...',
+        lines: ['The demo sleeps when idle, so the first request can take up to a minute.'],
+        timeout: 0, closable: false,
+      });
+    }
+  }
+
+  function slowEnd() {
+    slowCount -= 1;
+    if (slowCount <= 0 && slowToast) { slowToast.dismiss(); slowToast = null; slowCount = 0; }
+  }
+
+  async function api(path, { method = 'GET', json, headers = {} } = {}) {
+    const init = { method, headers: { Accept: 'application/json', ...headers } };
+    if (json !== undefined) {
+      init.headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(json);
+    }
+    setBusy(1);
+    let slow = false;
+    const timer = setTimeout(() => { slow = true; slowStart(); }, SLOW_MS);
+    try {
+      let res;
+      try {
+        res = await fetch(API + path, init);
+      } catch {
+        throw new NetworkError('network');
+      }
+      let data = null;
+      if (res.status !== 204) {
+        try { data = await res.json(); } catch { data = null; }
+      }
+      if (!res.ok) throw new ApiError(res.status, data || {});
+      return { data, etag: res.headers.get('ETag') };
+    } finally {
+      clearTimeout(timer);
+      if (slow) slowEnd();
+      setBusy(-1);
+    }
+  }
+
+  const etagFor = (note) => '"' + note.version + '"';
+  const teamPath = (id) => '/teams/' + encodeURIComponent(id);
+  const notePath = (id) => '/notes/' + encodeURIComponent(id);
+
+  function errorToast(err, retry) {
+    if (err instanceof NetworkError) {
+      toast({
+        kind: 'error', title: 'Cannot reach the service',
+        lines: ['The free server may be waking up. Give it a moment, then retry.'],
+        action: retry ? { label: 'Retry', fn: () => run(retry) } : null,
+      });
+    } else if (err instanceof ApiError) {
+      const p = err.problem;
+      const lines = [];
+      if (p.detail) lines.push(p.detail);
+      if (Array.isArray(p.errors)) {
+        for (const item of p.errors) {
+          const loc = Array.isArray(item.loc) ? item.loc.filter((x) => x !== 'body').join('.') : '';
+          lines.push((loc ? loc + ': ' : '') + (item.msg || ''));
+        }
+      }
+      toast({ kind: 'error', title: (p.title || 'Error') + ' (' + err.status + ')', lines });
+    } else {
+      console.error(err);
+      toast({ kind: 'error', title: 'Something went wrong in the page', lines: [String(err && err.message)] });
+    }
+  }
+
+  // Runs a user action and reports any failure as a toast.
+  async function run(task) {
+    try {
+      await task();
+    } catch (err) {
+      errorToast(err, task);
+    }
+  }
+
+  // =====================================================================
+  // Theme
+  // =====================================================================
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') ||
+      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    $('theme-sun').hidden = theme !== 'dark';
+    $('theme-moon').hidden = theme !== 'light';
+    $('theme-btn').setAttribute('aria-label', 'Switch to ' + (theme === 'dark' ? 'light' : 'dark') + ' theme');
+  }
+
+  function toggleTheme() {
+    const next = currentTheme() === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    try { localStorage.setItem(THEME_KEY, next); } catch { /* storage unavailable */ }
+  }
+
+  // =====================================================================
+  // Popover menu
+  // =====================================================================
+  const menuEl = $('menu');
+  let menuAnchor = null;
+
+  function openMenu(anchor, items) {
+    closeMenu(false);
+    menuEl.replaceChildren(...items.map((item) => el('button', {
+      type: 'button', role: 'menuitem', class: item.danger ? 'danger' : null,
+      onclick: () => { closeMenu(true); item.run(); },
+    }, icon(item.icon), item.label)));
+    menuEl.hidden = false;
+    menuAnchor = anchor;
+    anchor.setAttribute('aria-expanded', 'true');
+    const rect = anchor.getBoundingClientRect();
+    const w = menuEl.offsetWidth;
+    const h = menuEl.offsetHeight;
+    menuEl.style.left = Math.max(8, Math.min(rect.right - w, window.innerWidth - w - 8)) + 'px';
+    menuEl.style.top = Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - h - 8)) + 'px';
+    menuEl.querySelector('button').focus();
+  }
+
+  function closeMenu(refocus) {
+    if (menuEl.hidden) return;
+    menuEl.hidden = true;
+    if (menuAnchor) {
+      menuAnchor.setAttribute('aria-expanded', 'false');
+      if (refocus) menuAnchor.focus();
+    }
+    menuAnchor = null;
+  }
+
+  function onMenuKey(event) {
+    const buttons = [...menuEl.querySelectorAll('button')];
+    const index = buttons.indexOf(document.activeElement);
+    if (event.key === 'ArrowDown') buttons[(index + 1) % buttons.length].focus();
+    else if (event.key === 'ArrowUp') buttons[(index - 1 + buttons.length) % buttons.length].focus();
+    else if (event.key === 'Home') buttons[0].focus();
+    else if (event.key === 'End') buttons[buttons.length - 1].focus();
+    else if (event.key === 'Tab') { closeMenu(true); return; }
+    else return;
+    event.preventDefault();
+  }
+
+  function toggleTeamMenu(anchor, team) {
+    if (menuAnchor === anchor) { closeMenu(true); return; }
+    openMenu(anchor, [
+      { label: 'Rename', icon: 'edit', run: () => openTeamDialog('rename', team) },
+      { label: 'Delete team', icon: 'trash', danger: true, run: () => run(() => deleteTeam(team)) },
+    ]);
+  }
+
+  // =====================================================================
+  // Confirm dialog
+  // =====================================================================
+  const cf = { dlg: $('confirm-dlg'), title: $('cf-title'), msg: $('cf-msg'), ok: $('cf-ok'), cancel: $('cf-cancel') };
+
+  function confirmDialog({ title, message, confirmLabel = 'Confirm', danger = false }) {
+    return new Promise((resolve) => {
+      cf.title.textContent = title;
+      cf.msg.textContent = message;
+      cf.ok.textContent = confirmLabel;
+      cf.ok.className = 'btn ' + (danger ? 'danger-solid' : 'primary');
+      cf.dlg.returnValue = '';
+      cf.dlg.addEventListener('close', () => resolve(cf.dlg.returnValue === 'ok'), { once: true });
+      cf.dlg.showModal();
+    });
+  }
+
+  // =====================================================================
+  // Teams
+  // =====================================================================
+  const currentTeam = () => state.teams.find((t) => t.id === state.teamId) || null;
+
+  async function loadTeams() {
+    try {
+      const { data } = await api('/teams?limit=100');
+      state.teams = data.items;
+      state.teamsLoaded = true;
+      state.teamsFailed = false;
+    } catch (err) {
+      state.teamsFailed = true;
+      renderTeams();
+      throw err;
+    }
+    renderTeams();
+    renderHead();
+  }
+
+  function teamRow(team) {
+    const active = team.id === state.teamId;
+    const more = el('button', {
+      type: 'button', class: 'icon-btn sm row-menu', 'aria-label': 'Actions for team ' + team.name,
+      'aria-haspopup': 'menu', 'aria-expanded': 'false',
+      onclick: () => toggleTeamMenu(more, team),
+    }, icon('more'));
+    const showCount = active && state.loaded.notes;
+    return el('li', { class: 'team-row' + (active ? ' active' : '') },
+      el('button', {
+        type: 'button', class: 'team-btn', 'aria-current': active ? 'true' : null,
+        onclick: () => selectTeam(team.id),
+      }, avatar(team.name), el('span', { class: 'team-name', title: team.name }, team.name)),
+      showCount ? el('span', { class: 'count num' }, String(state.notes.length)) : null,
+      more);
+  }
+
+  function renderTeams() {
+    const list = $('team-list');
+    list.replaceChildren();
+    if (state.teamsFailed) {
+      list.append(el('li', {}, emptyState({
+        art: 'team', title: 'Could not load teams', text: 'Check your connection and try again.',
+        compact: true,
+      })));
+      return;
+    }
+    if (!state.teamsLoaded) {
+      for (let i = 0; i < 4; i += 1) list.append(el('li', {}, el('div', { class: 'skel row' })));
+      return;
+    }
+    if (!state.teams.length) {
+      list.append(el('li', {}, emptyState({
+        art: 'team', title: 'No teams yet', text: 'Create a team to start sharing notes.',
+        action: { label: 'New team', fn: () => openTeamDialog('create') }, compact: true,
+      })));
+      return;
+    }
+    for (const team of state.teams) list.append(teamRow(team));
+  }
+
+  function selectTeam(id) {
+    const wasOpen = drawerOpen();
+    closeDrawer(false);
+    if (wasOpen) $('main').focus({ preventScroll: true });
+    location.hash = 'team=' + id;
+  }
+
+  // The hash is the source of truth for the selected team, so refresh and back/forward work.
+  async function applyHash() {
+    const match = /^#team=(.+)$/.exec(location.hash);
+    let id = match && UUID_RE.test(match[1]) ? match[1].toLowerCase() : null;
+    if (id && !state.teams.some((t) => t.id === id)) id = null;
+    if (id === state.teamId) return;
+    state.teamId = id;
+    state.query = '';
+    $('search').value = '';
+    state.notes = [];
+    state.trash = [];
+    state.loaded = { notes: false, trash: false };
+    if (state.editor) closeEditor();
+    renderTeams();
+    renderHead();
+    renderLists();
+    if (id) await run(loadTeamData);
+  }
+
+  function openTeamDialog(mode, team) {
+    const dlg = $('team-dlg');
+    dlg.dataset.mode = mode;
+    dlg.dataset.teamId = team ? team.id : '';
+    $('tm-heading').textContent = mode === 'create' ? 'New team' : 'Rename team';
+    $('tm-save').textContent = mode === 'create' ? 'Create team' : 'Save';
+    $('tm-name').value = team ? team.name : '';
+    $('tm-name').removeAttribute('aria-invalid');
+    $('tm-err').textContent = '';
+    dlg.showModal();
+    $('tm-name').select();
+  }
+
+  async function submitTeamDialog() {
+    const dlg = $('team-dlg');
+    const name = $('tm-name').value.trim();
+    if (!name) {
+      $('tm-err').textContent = 'Give the team a name.';
+      $('tm-name').setAttribute('aria-invalid', 'true');
+      $('tm-name').focus();
+      return;
+    }
+    const saveBtn = $('tm-save');
+    saveBtn.disabled = true;
+    try {
+      if (dlg.dataset.mode === 'create') {
+        const { data } = await api('/teams', { method: 'POST', json: { name } });
+        dlg.close();
+        await loadTeams();
+        selectTeam(data.id);
+        toast({ kind: 'success', title: 'Team created' });
+      } else {
+        await api(teamPath(dlg.dataset.teamId), { method: 'PATCH', json: { name } });
+        dlg.close();
+        await loadTeams();
+        toast({ kind: 'success', title: 'Team renamed' });
+      }
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+
+  async function deleteTeam(team) {
+    const ok = await confirmDialog({
+      title: 'Delete "' + team.name + '"?',
+      message: 'This permanently deletes the team and all of its notes, including the ones in ' +
+        'the trash. It cannot be undone.',
+      confirmLabel: 'Delete team', danger: true,
+    });
+    if (!ok) return;
+    await api(teamPath(team.id), { method: 'DELETE' });
+    await loadTeams();
+    if (state.teamId === team.id) location.hash = '';
+    toast({ kind: 'success', title: 'Team deleted' });
+  }
+
+  // =====================================================================
+  // Notes and trash: data
+  // =====================================================================
+  async function loadTeamData() {
+    await Promise.all([refreshNotes(), refreshTrash()]);
+  }
+
+  async function refreshNotes() {
+    const tid = state.teamId;
+    if (!tid) return;
+    const { data } = await api('/notes?team_id=' + encodeURIComponent(tid) + '&limit=100');
+    if (tid !== state.teamId) return; // user switched team while loading
+    state.notes = data.items;
+    state.loaded.notes = true;
+    renderTeams();
+    renderLists();
+  }
+
+  async function refreshTrash() {
+    const tid = state.teamId;
+    if (!tid) return;
+    const { data } = await api(teamPath(tid) + '/trash?limit=100');
+    if (tid !== state.teamId) return;
+    state.trash = data.items;
+    state.loaded.trash = true;
+    renderLists();
+  }
+
+  const refreshBoth = () => Promise.all([refreshNotes(), refreshTrash()]);
+
+  async function deleteNote(id) {
+    await api(notePath(id), { method: 'DELETE' });
+    if (state.editor && state.editor.id === id) closeEditor();
+    await refreshBoth();
+    toast({
+      kind: 'success', title: 'Moved to the trash',
+      action: { label: 'Undo', fn: () => run(() => restoreNote(id, true)) },
+    });
+  }
+
+  async function restoreNote(id, quiet) {
+    await api(notePath(id) + '/restore', { method: 'POST' });
+    await refreshBoth();
+    toast({ kind: 'success', title: quiet ? 'Deletion undone' : 'Note restored' });
+  }
+
+  // A 404 on a note means it was trashed or its team deleted by someone else.
+  async function noteGone(err) {
+    if (err instanceof ApiError && err.status === 404) {
+      closeEditor();
+      try { await refreshBoth(); } catch { /* the original error is shown instead */ }
+    }
+  }
+
+  // =====================================================================
+  // Rendering: header, tabs, lists
+  // =====================================================================
+  function renderHead() {
+    const team = currentTeam();
+    $('empty-main').hidden = !!team || !state.teamsLoaded;
+    $('team-view').hidden = !team;
+    if (!team) {
+      $('empty-main').replaceChildren(emptyState({
+        art: 'team', title: state.teams.length ? 'Pick a team' : 'Welcome to Team Notes',
+        text: state.teams.length
+          ? 'Choose a team from the list to see its notes, or start a new one.'
+          : 'Create your first team to start sharing notes.',
+        action: { label: 'New team', fn: () => openTeamDialog('create') },
+      }));
+      return;
+    }
+    $('team-title').textContent = team.name;
+    $('team-avatar').replaceChildren(avatar(team.name, 'lg'));
+    setTab(state.tab);
+  }
+
+  function setTab(name) {
+    state.tab = name;
+    for (const key of ['notes', 'trash']) {
+      const active = key === name;
+      $('tab-' + key).setAttribute('aria-selected', String(active));
+      $('tab-' + key).tabIndex = active ? 0 : -1;
+      $('panel-' + key).hidden = !active;
+    }
+    $('new-note-btn').hidden = name !== 'notes';
+  }
+
+  function onTabKey(event) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    const next = state.tab === 'notes' ? 'trash' : 'notes';
+    setTab(next);
+    $('tab-' + next).focus();
+  }
+
+  function filterItems(list) {
+    const q = state.query.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((n) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q));
+  }
+
+  function renderLists() {
+    $('count-notes').textContent = state.loaded.notes ? String(state.notes.length) : '-';
+    $('count-trash').textContent = state.loaded.trash ? String(state.trash.length) : '-';
+    renderGrid('notes');
+    renderGrid('trash');
+  }
+
+  function skeletonCard() {
+    return el('li', {}, el('div', { class: 'card skeleton', 'aria-hidden': 'true' },
+      el('div', { class: 'skel w60' }), el('div', { class: 'skel w90' }), el('div', { class: 'skel w90' }),
+      el('div', { class: 'skel w40' })));
+  }
+
+  function renderGrid(kind) {
+    const grid = $(kind + '-grid');
+    grid.replaceChildren();
+    if (!state.teamId) return;
+    if (!state.loaded[kind]) {
+      grid.setAttribute('aria-busy', 'true');
+      for (let i = 0; i < 6; i += 1) grid.append(skeletonCard());
+      return;
+    }
+    grid.removeAttribute('aria-busy');
+    const all = kind === 'notes' ? state.notes : state.trash;
+    const items = filterItems(all);
+    if (!all.length) {
+      const empty = kind === 'notes'
+        ? emptyState({
+          art: 'note', title: 'No notes yet', text: 'Capture the first note for this team.',
+          action: { label: 'New note', fn: () => openEditor('create') },
+        })
+        : emptyState({
+          art: 'trash', title: 'Nothing in the trash',
+          text: 'Deleted notes land here and can be restored.',
+        });
+      grid.append(el('li', { class: 'span-all' }, empty));
+      return;
+    }
+    if (!items.length) {
+      grid.append(el('li', { class: 'span-all' }, emptyState({
+        art: 'search', title: 'No matches', compact: true,
+        text: 'Nothing in ' + (kind === 'notes' ? 'notes' : 'the trash') + ' matches "' + state.query.trim() + '".',
+      })));
+      return;
+    }
+    for (const note of items) grid.append(kind === 'notes' ? noteCard(note) : trashCard(note));
+  }
+
+  function authorChip(note) {
+    const name = note.author_name;
+    return el('span', { class: 'author' },
+      name ? avatar(name, 'xs') : null,
+      el('span', {}, name || 'No author'));
+  }
+
+  function noteCard(note) {
+    const body = note.body.trim();
+    return el('li', {}, el('button', {
+      type: 'button', class: 'card', 'data-note-id': note.id,
+      onclick: () => { state.returnFocusNoteId = note.id; run(() => openNote(note.id)); },
+    },
+    el('span', { class: 'card-title' }, note.title),
+    el('span', { class: 'card-body' + (body ? '' : ' none') }, body ? body.slice(0, 400) : 'No content'),
+    el('span', { class: 'card-foot' },
+      authorChip(note), el('span', { class: 'grow' }), timeEl(note.updated_at),
+      el('span', { class: 'pill num' }, 'v' + note.version))));
+  }
+
+  function trashCard(note) {
+    const body = note.body.trim();
+    return el('li', {}, el('div', { class: 'card trash' },
+      el('span', { class: 'card-title' }, note.title),
+      el('span', { class: 'card-body' + (body ? '' : ' none') }, body ? body.slice(0, 400) : 'No content'),
+      el('span', { class: 'card-foot' },
+        el('span', { class: 'grow' }, 'Deleted ', note.deleted_at ? timeEl(note.deleted_at) : ''),
+        el('button', {
+          type: 'button', class: 'btn sm', 'aria-label': 'Restore note ' + note.title,
+          onclick: () => run(() => restoreNote(note.id, false)),
+        }, icon('restore'), 'Restore'))));
+  }
+
+  // =====================================================================
+  // Editor panel
+  // =====================================================================
+  const ed = {
+    dlg: $('editor-dlg'), form: $('ed-form'), heading: $('ed-heading'), meta: $('ed-meta'),
+    dirty: $('ed-dirty'), conflict: $('ed-conflict'), title: $('ed-title'), titleErr: $('ed-title-err'),
+    titleCount: $('ed-title-count'), body: $('ed-body'), bodyCount: $('ed-body-count'),
+    author: $('ed-author'), authorRow: $('ed-author-row'), del: $('ed-delete'),
+    cancel: $('ed-cancel'), save: $('ed-save'),
+  };
+  let closingEditor = false;
+
+  async function openNote(id) {
+    try {
+      const { data, etag } = await api(notePath(id));
+      openEditor('edit', data, etag);
+    } catch (err) {
+      await noteGone(err);
+      throw err;
+    }
+  }
+
+  function openEditor(mode, note, etag) {
+    const isEdit = mode === 'edit';
+    if (!isEdit) state.returnFocusNoteId = null;
+    state.editor = {
+      mode, id: isEdit ? note.id : null, note: isEdit ? note : null,
+      etag: isEdit ? (etag || etagFor(note)) : null,
+      base: { title: isEdit ? note.title : '', body: isEdit ? note.body : '' },
+      conflict: null, saving: false,
+    };
+    ed.heading.textContent = isEdit ? 'Edit note' : 'New note';
+    ed.authorRow.hidden = isEdit;
+    ed.author.value = '';
+    ed.del.hidden = !isEdit;
+    ed.save.textContent = isEdit ? 'Save' : 'Create note';
+    setTitleError('');
+    fillFields(isEdit ? note : { title: '', body: '' });
+    renderMeta();
+    renderConflict();
+    updateDirty();
+    if (!ed.dlg.open) ed.dlg.showModal();
+    autoGrow();
+    ed.title.focus();
+  }
+
+  function fillFields(note) {
+    ed.title.value = note.title;
+    ed.body.value = note.body;
+    autoGrow();
+    updateCounters();
+  }
+
+  const readFields = () => ({ title: ed.title.value, body: ed.body.value });
+
+  function renderMeta() {
+    const editor = state.editor;
+    ed.meta.replaceChildren();
+    if (!editor) return;
+    if (editor.mode === 'create') {
+      const team = currentTeam();
+      ed.meta.append('In ', team ? team.name : 'this team');
+      return;
+    }
+    const n = editor.note;
+    ed.meta.append(
+      el('span', { class: 'pill num' }, 'v' + n.version),
+      'Updated ', timeEl(n.updated_at),
+      n.author_name ? ' by ' + n.author_name : '');
+  }
+
+  function isDirty() {
+    const editor = state.editor;
+    if (!editor) return false;
+    if (editor.mode === 'create') {
+      return !!(ed.title.value.trim() || ed.body.value || ed.author.value.trim());
+    }
+    return ed.title.value !== editor.base.title || ed.body.value !== editor.base.body;
+  }
+
+  function updateDirty() {
+    const dirty = isDirty();
+    ed.dirty.hidden = !dirty;
+    ed.cancel.textContent = dirty ? 'Cancel' : 'Close';
+  }
+
+  function autoGrow() {
+    ed.body.style.height = 'auto';
+    ed.body.style.height = ed.body.scrollHeight + 2 + 'px';
+  }
+
+  function setCounter(node, length, max) {
+    node.hidden = length < max * 0.8;
+    node.textContent = length.toLocaleString() + ' / ' + max.toLocaleString();
+    node.classList.toggle('over', length >= max * 0.95);
+  }
+
+  function updateCounters() {
+    setCounter(ed.titleCount, ed.title.value.length, TITLE_MAX);
+    setCounter(ed.bodyCount, ed.body.value.length, BODY_MAX);
+  }
+
+  function setTitleError(message) {
+    ed.titleErr.textContent = message;
+    if (message) ed.title.setAttribute('aria-invalid', 'true');
+    else ed.title.removeAttribute('aria-invalid');
+  }
+
+  function setSaving(editor, saving) {
+    editor.saving = saving;
+    ed.save.disabled = saving;
+    ed.save.textContent = saving ? 'Saving...' : (editor.mode === 'edit' ? 'Save' : 'Create note');
+  }
+
+  // Remembers the saved state of an existing note (after load, save or "use latest").
+  function applyNote(editor, note, etag) {
+    editor.note = note;
+    editor.etag = etag || etagFor(note);
+    editor.base = { title: note.title, body: note.body };
+    editor.conflict = null;
+    fillFields(note);
+    renderMeta();
+    renderConflict();
+    updateDirty();
+  }
+
+  function renderConflict() {
+    const editor = state.editor;
+    const box = ed.conflict;
+    box.replaceChildren();
+    const c = editor && editor.conflict;
+    box.hidden = !c;
+    if (!c) return;
+    const latest = c.latest;
+    box.append(
+      el('div', { class: 'callout-title' }, icon('alert'),
+        'Someone else changed this note (now version ' + c.version + ')'),
+      el('p', {}, 'Your text is still in the editor and nothing has been lost. ' +
+        'Compare the two versions, then choose.'));
+    if (latest) {
+      box.append(el('div', { class: 'compare' },
+        compareColumn('Your text', c.mine.title, c.mine.body),
+        compareColumn('Latest (v' + latest.version + ')', latest.title, latest.body)));
+    }
+    box.append(el('div', { class: 'callout-actions' },
+      el('button', { type: 'button', class: 'btn', onclick: () => run(useLatest) }, 'Use latest'),
+      el('button', { type: 'button', class: 'btn primary', onclick: () => run(() => saveEditor(true)) },
+        'Overwrite with mine')));
+  }
+
+  function compareColumn(label, title, body) {
+    return el('div', { class: 'cmp-col' },
+      el('div', { class: 'cmp-label' }, label),
+      el('div', { class: 'cmp-title' }, title || '(empty title)'),
+      el('div', { class: 'cmp-text' }, body || '(empty)'));
+  }
+
+  async function saveEditor(overwrite = false) {
+    const editor = state.editor;
+    if (!editor || editor.saving) return;
+    const fields = readFields();
+    if (!fields.title.trim()) {
+      setTitleError('Give the note a title.');
+      ed.title.focus();
+      return;
+    }
+    setTitleError('');
+    setSaving(editor, true);
+    try {
+      if (editor.mode === 'create') await createNote(fields);
+      else await updateNote(editor, fields, overwrite);
+    } finally {
+      setSaving(editor, false);
+    }
+  }
+
+  async function createNote(fields) {
+    const payload = { title: fields.title, body: fields.body };
+    const author = ed.author.value.trim();
+    if (author) payload.author_name = author;
+    await api(teamPath(state.teamId) + '/notes', { method: 'POST', json: payload });
+    closeEditor();
+    toast({ kind: 'success', title: 'Note created' });
+    await refreshNotes();
+  }
+
+  async function updateNote(editor, fields, overwrite) {
+    try {
+      let etag = editor.etag;
+      if (overwrite) {
+        // Learn the current ETag first, then send the user's text against it.
+        const latest = await api(notePath(editor.id));
+        etag = latest.etag || etagFor(latest.data);
+      }
+      const { data, etag: newTag } = await api(notePath(editor.id), {
+        method: 'PATCH', json: { title: fields.title, body: fields.body }, headers: { 'If-Match': etag },
+      });
+      if (state.editor === editor) applyNote(editor, data, newTag);
+      toast({ kind: 'success', title: 'Saved' });
+      await refreshNotes();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 412 && state.editor === editor) {
+        await handleConflict(editor, err, fields);
+        return; // the unsaved text stays in the editor
+      }
+      await noteGone(err);
+      throw err;
+    }
+  }
+
+  async function handleConflict(editor, err, mine) {
+    const found = /current version (\d+)/i.exec(err.message);
+    let latest = null;
+    try {
+      latest = (await api(notePath(editor.id))).data;
+    } catch (inner) {
+      if (inner instanceof ApiError && inner.status === 404) { await noteGone(inner); throw inner; }
+    }
+    if (state.editor !== editor) return;
+    editor.conflict = { mine, latest, version: latest ? latest.version : (found ? found[1] : '?') };
+    renderConflict();
+    ed.conflict.scrollIntoView({ block: 'nearest' });
+  }
+
+  async function useLatest() {
+    const editor = state.editor;
+    if (!editor || editor.mode !== 'edit') return;
+    try {
+      const { data, etag } = await api(notePath(editor.id));
+      if (state.editor !== editor) return;
+      applyNote(editor, data, etag);
+      toast({ kind: 'info', title: 'Loaded the latest version' });
+      await refreshNotes();
+    } catch (err) {
+      await noteGone(err);
+      throw err;
+    }
+  }
+
+  async function requestCloseEditor() {
+    if (!state.editor || closingEditor) return;
+    closingEditor = true;
+    try {
+      if (isDirty()) {
+        const ok = await confirmDialog({
+          title: 'Discard changes?', message: 'You have unsaved changes. Closing now will discard them.',
+          confirmLabel: 'Discard', danger: true,
+        });
+        if (!ok) return;
+      }
+      closeEditor();
+    } finally {
+      closingEditor = false;
+    }
+  }
+
+  function closeEditor() {
+    state.editor = null;
+    if (ed.dlg.open) ed.dlg.close();
+  }
+
+  // Native dialogs restore focus themselves, but the card may have been re-rendered since.
+  function onEditorClosed() {
+    state.editor = null;
+    ed.conflict.hidden = true;
+    const id = state.returnFocusNoteId;
+    state.returnFocusNoteId = null;
+    const card = id && document.querySelector('[data-note-id="' + CSS.escape(id) + '"]');
+    if (card) card.focus();
+    else if (!$('new-note-btn').hidden) $('new-note-btn').focus();
+  }
+
+  // =====================================================================
+  // Mobile drawer
+  // =====================================================================
+  const sidebar = $('sidebar');
+  const menuBtn = $('menu-btn');
+  const drawerOpen = () => sidebar.classList.contains('open');
+
+  function openDrawer() {
+    sidebar.classList.add('open');
+    $('scrim').hidden = false;
+    menuBtn.setAttribute('aria-expanded', 'true');
+    const first = sidebar.querySelector('button');
+    if (first) first.focus();
+  }
+
+  function closeDrawer(refocus) {
+    if (!drawerOpen()) return;
+    sidebar.classList.remove('open');
+    $('scrim').hidden = true;
+    menuBtn.setAttribute('aria-expanded', 'false');
+    if (refocus) menuBtn.focus();
+  }
+
+  function trapFocus(container, event) {
+    const items = [...container.querySelectorAll('a[href], button:not([disabled])')]
+      .filter((n) => n.offsetParent !== null);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) { last.focus(); event.preventDefault(); }
+    else if (!event.shiftKey && document.activeElement === last) { first.focus(); event.preventDefault(); }
+  }
+
+  // =====================================================================
+  // Wiring
+  // =====================================================================
+  function wireEditor() {
+    ed.form.addEventListener('submit', (event) => { event.preventDefault(); run(() => saveEditor(false)); });
+    ed.title.addEventListener('input', () => { setTitleError(''); updateCounters(); updateDirty(); });
+    ed.title.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.ctrlKey && !event.metaKey) { event.preventDefault(); ed.body.focus(); }
+    });
+    ed.body.addEventListener('input', () => { autoGrow(); updateCounters(); updateDirty(); });
+    ed.author.addEventListener('input', updateDirty);
+    ed.cancel.addEventListener('click', requestCloseEditor);
+    $('ed-close').addEventListener('click', requestCloseEditor);
+    ed.del.addEventListener('click', () => {
+      if (state.editor && state.editor.id) run(() => deleteNote(state.editor.id));
+    });
+    ed.dlg.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); requestCloseEditor(); }
+      else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        ed.form.requestSubmit();
+      }
+    });
+    ed.dlg.addEventListener('cancel', (event) => { event.preventDefault(); requestCloseEditor(); });
+    ed.dlg.addEventListener('close', onEditorClosed);
+    // Click on the backdrop closes, but not a text selection that ends outside the panel.
+    let downOnBackdrop = false;
+    ed.dlg.addEventListener('mousedown', (event) => { downOnBackdrop = event.target === ed.dlg; });
+    ed.dlg.addEventListener('click', (event) => {
+      if (event.target === ed.dlg && downOnBackdrop) requestCloseEditor();
+    });
+    window.addEventListener('resize', () => { if (ed.dlg.open) autoGrow(); });
+  }
+
+  function wireDialogs() {
+    cf.ok.addEventListener('click', () => cf.dlg.close('ok'));
+    cf.cancel.addEventListener('click', () => cf.dlg.close('cancel'));
+    $('tm-cancel').addEventListener('click', () => $('team-dlg').close());
+    $('tm-form').addEventListener('submit', (event) => { event.preventDefault(); run(submitTeamDialog); });
+    $('tm-name').addEventListener('input', () => {
+      $('tm-err').textContent = '';
+      $('tm-name').removeAttribute('aria-invalid');
+    });
+  }
+
+  function wireGlobal() {
+    $('new-team-btn').addEventListener('click', () => { closeDrawer(true); openTeamDialog('create'); });
+    $('new-note-btn').addEventListener('click', () => {
+      state.returnFocusNoteId = null;
+      openEditor('create');
+    });
+    $('team-title').addEventListener('click', () => { const t = currentTeam(); if (t) openTeamDialog('rename', t); });
+    $('team-more').addEventListener('click', () => { const t = currentTeam(); if (t) toggleTeamMenu($('team-more'), t); });
+    $('tab-notes').addEventListener('click', () => setTab('notes'));
+    $('tab-trash').addEventListener('click', () => setTab('trash'));
+    $('tab-notes').addEventListener('keydown', onTabKey);
+    $('tab-trash').addEventListener('keydown', onTabKey);
+    $('search').addEventListener('input', (event) => { state.query = event.target.value; renderLists(); });
+    $('search').addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && event.target.value) {
+        event.target.value = '';
+        state.query = '';
+        renderLists();
+      }
+    });
+    $('theme-btn').addEventListener('click', toggleTheme);
+    menuBtn.addEventListener('click', () => (drawerOpen() ? closeDrawer(true) : openDrawer()));
+    $('scrim').addEventListener('click', () => closeDrawer(true));
+    menuEl.addEventListener('keydown', onMenuKey);
+
+    document.addEventListener('pointerdown', (event) => {
+      if (menuEl.hidden) return;
+      if (menuEl.contains(event.target) || (menuAnchor && menuAnchor.contains(event.target))) return;
+      closeMenu(false);
+    });
+    window.addEventListener('resize', () => closeMenu(false));
+    window.addEventListener('scroll', () => closeMenu(false), true);
+    matchMedia('(max-width: 860px)').addEventListener('change', (event) => {
+      if (!event.matches) closeDrawer(false);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        if (!menuEl.hidden) { closeMenu(true); event.preventDefault(); return; }
+        if (drawerOpen() && !document.querySelector('dialog[open]')) { closeDrawer(true); event.preventDefault(); return; }
+      }
+      if (event.key === 'Tab' && drawerOpen() && !document.querySelector('dialog[open]')) {
+        trapFocus(sidebar, event);
+      }
+      const t = event.target;
+      const typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+      if (event.key === '/' && !typing && !event.ctrlKey && !event.metaKey && !event.altKey &&
+          !document.querySelector('dialog[open]') && !$('team-view').hidden) {
+        event.preventDefault();
+        setTab(state.tab);
+        $('search').focus();
+      }
+    });
+
+    window.addEventListener('hashchange', () => applyHash());
+
+    // Keep "5 min ago" labels fresh.
+    setInterval(() => {
+      for (const node of document.querySelectorAll('time[data-ago]')) {
+        node.textContent = timeAgo(node.getAttribute('datetime'));
+      }
+    }, 60000);
+  }
+
+  async function boot() {
+    await loadTeams();
+    await applyHash();
+  }
+
+  hydrateIcons();
+  applyTheme(currentTheme());
+  wireEditor();
+  wireDialogs();
+  wireGlobal();
+  renderTeams();
+  run(boot);
+})();
+</script>
+</body>
+</html>
