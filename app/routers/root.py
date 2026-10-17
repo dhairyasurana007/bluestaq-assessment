@@ -23,17 +23,24 @@ _PAGE = """<!doctype html>
 <p>A small REST service for notes shared across team spaces. This is the API root, so start
 with one of the links below.</p>
 
-<h2>Where to go</h2>
+<h2>For people</h2>
 <ul>
-  <li><a href="/app"><code>/app</code></a>: the notes web app: create teams and notes in the
-      browser.</li>
-  <li><a href="/docs"><code>/docs</code></a>: interactive API docs. Try every endpoint
-      from here.</li>
-  <li><a href="/api/v1/teams"><code>/api/v1/teams</code></a>: the demo teams
-      (<code>Platform</code> and <code>Research</code>).</li>
-  <li><a href="/health"><code>/health</code></a>: liveness check and the deployed commit.</li>
-  <li><a href="https://github.com/dhairyasurana007/bluestaq-assessment#readme">README</a>:
-      quick start, API overview and design decisions.</li>
+  <li><a href="/app" target="_blank" rel="noopener"><code>/app</code></a>: the notes web app.
+      Create teams and notes in the browser.</li>
+  <li><a href="/docs" target="_blank" rel="noopener"><code>/docs</code></a>: interactive API
+      docs. Try every endpoint from here.</li>
+  <li><a href="https://github.com/dhairyasurana007/bluestaq-assessment#readme"
+      target="_blank" rel="noopener">README</a>: quick start, API overview and design
+      decisions.</li>
+</ul>
+
+<h2>For programs (raw JSON)</h2>
+<ul>
+  <li><a href="/api/v1/teams" target="_blank" rel="noopener"><code>/api/v1/teams</code></a>:
+      the list of teams as JSON (the demo has <code>Platform</code> and
+      <code>Research</code>). The web app is built on this same API.</li>
+  <li><a href="/health" target="_blank" rel="noopener"><code>/health</code></a>:
+      liveness check and the deployed commit.</li>
 </ul>
 
 <h2>Try it</h2>
