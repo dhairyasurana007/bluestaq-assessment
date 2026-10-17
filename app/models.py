@@ -28,7 +28,10 @@ class Team(Base):
 
 class Note(Base):
     __tablename__ = "notes"
-    __table_args__ = (Index("ix_notes_team_updated_id", "team_id", "updated_at", "id"),)
+    __table_args__ = (
+        Index("ix_notes_team_updated_id", "team_id", "updated_at", "id"),
+        Index("ix_notes_team_deleted", "team_id", "deleted_at"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     team_id: Mapped[str] = mapped_column(String(36), ForeignKey("teams.id", ondelete="CASCADE"))
@@ -38,3 +41,5 @@ class Note(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    # NULL = active note, set = in the trash (PLAN.md section 4, migration 0003).
+    deleted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

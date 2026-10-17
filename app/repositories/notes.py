@@ -2,11 +2,32 @@
 
 from datetime import timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import ColumnElement, Select, select, update
 from sqlalchemy.orm import Session
 
 from app.db import utcnow
 from app.models import Note
+
+
+class NotInTrashError(Exception):
+    """Raised by ``restore_note`` when the note exists but is not in the trash."""
+
+
+def is_active() -> ColumnElement[bool]:
+    """The one definition of "active": the clause ``deleted_at IS NULL``.
+
+    Use it in UPDATE/DELETE statements; SELECTs should start from ``active_notes()``.
+    """
+    return Note.deleted_at.is_(None)
+
+
+def active_notes() -> Select[tuple[Note]]:
+    """Base SELECT for every query over live notes; trashed notes are excluded.
+
+    Every read of active notes (lookup, listings, and later tags, pagination and search) must
+    start from this helper so the trash filter cannot be forgotten.
+    """
+    return select(Note).where(is_active())
 
 
 def create_note(
@@ -27,12 +48,14 @@ def create_note(
 
 
 def get_note(session: Session, note_id: str) -> Note | None:
+    """Return the active note with this id; a trashed or unknown note gives None."""
     # populate_existing: always reflect the database, never a stale identity-map copy.
-    return session.get(Note, note_id, populate_existing=True)
+    stmt = active_notes().where(Note.id == note_id).execution_options(populate_existing=True)
+    return session.scalars(stmt).one_or_none()
 
 
 def list_notes(session: Session, team_ids: list[str] | None, limit: int) -> list[Note]:
-    stmt = select(Note)
+    stmt = active_notes()
     if team_ids:
         stmt = stmt.where(Note.team_id.in_(team_ids))
     stmt = stmt.order_by(Note.updated_at.desc(), Note.id.desc()).limit(limit)
@@ -53,7 +76,7 @@ def update_note(
         now = utcnow()
         if now <= note.updated_at:  # guarantee a strictly later timestamp
             now = note.updated_at + timedelta(microseconds=1)
-        conditions = [Note.id == note.id]
+        conditions = [Note.id == note.id, is_active()]
         if expected_version is not None:
             conditions.append(Note.version == expected_version)
         else:
@@ -83,6 +106,69 @@ def update_note(
         note = reread
 
 
-def delete_note(session: Session, note: Note) -> None:
-    session.delete(note)
+def trash_note(session: Session, note_id: str) -> bool:
+    """Move an active note to the trash. Returns False when there is no such active note.
+
+    One conditional UPDATE, so two concurrent deletes cannot both succeed. ``version`` and
+    ``updated_at`` are left alone: only ``deleted_at`` changes.
+    """
+    stmt = (
+        update(Note)
+        .where(Note.id == note_id, is_active())
+        .values(deleted_at=utcnow())
+        .execution_options(synchronize_session=False)
+    )
+    moved = session.execute(stmt).rowcount
     session.commit()
+    return moved == 1
+
+
+def list_trashed_notes(session: Session, team_id: str, limit: int) -> list[Note]:
+    """A team's trashed notes, most recently deleted first (ties broken by id)."""
+    stmt = (
+        select(Note)
+        .where(Note.team_id == team_id, Note.deleted_at.is_not(None))
+        .order_by(Note.deleted_at.desc(), Note.id.desc())
+        .limit(limit)
+        .execution_options(populate_existing=True)
+    )
+    return list(session.scalars(stmt))
+
+
+def restore_note(session: Session, note_id: str) -> Note | None:
+    """Atomically take a note out of the trash.
+
+    Runs ``UPDATE notes SET deleted_at = NULL, version = version + 1, updated_at = ... WHERE
+    id = :id AND deleted_at IS NOT NULL RETURNING ...`` and returns that row, so the response
+    is exactly what this call wrote. ``updated_at`` becomes strictly later than before.
+    Returns None for an unknown note and raises ``NotInTrashError`` for an active one.
+    """
+    while True:
+        current = session.scalars(
+            select(Note).where(Note.id == note_id).execution_options(populate_existing=True)
+        ).one_or_none()
+        if current is None:
+            return None
+        if current.deleted_at is None:
+            raise NotInTrashError
+        now = utcnow()
+        if now <= current.updated_at:  # guarantee a strictly later timestamp
+            now = current.updated_at + timedelta(microseconds=1)
+        stmt = (
+            update(Note)
+            .where(
+                Note.id == note_id,
+                Note.deleted_at.is_not(None),
+                # Guards the timestamp computed above: if the row changed since the read,
+                # nothing matches and we re-read instead of writing an out-of-date value.
+                Note.updated_at == current.updated_at,
+            )
+            .values(deleted_at=None, version=Note.version + 1, updated_at=now)
+            .returning(Note)
+            .execution_options(synchronize_session=False, populate_existing=True)
+        )
+        restored = session.scalars(stmt).one_or_none()
+        session.commit()
+        if restored is not None:
+            return restored
+        # Lost a race (another restore, a team delete...): re-read to decide 404 / 409 / retry.

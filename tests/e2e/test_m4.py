@@ -19,6 +19,7 @@ NOTE_KEYS = {
     "version",
     "created_at",
     "updated_at",
+    "deleted_at",
 }
 
 
@@ -378,7 +379,7 @@ def test_patch_length_bounds_accepted(api: APIRequestContext):
     assert resp.status == 200, resp.text()
 
 
-# --- delete (hard delete in M4) ---------------------------------------------------------
+# --- delete (soft delete since M6; the trash is covered in test_m6.py) ---
 
 
 def test_delete_note(api: APIRequestContext):

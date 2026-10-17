@@ -76,6 +76,7 @@ class NoteOut(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+    deleted_at: datetime | None = None  # null unless the note is in the trash
 
 
 class NoteList(BaseModel):
