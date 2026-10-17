@@ -190,7 +190,91 @@ Two mitigations make the open model tolerable in the meantime. Optimistic concur
 overwrites, and deletes go to a trash that anyone can restore from, so a stray or malicious
 `DELETE` is recoverable. The demo database also resets on every deploy.
 
----
+## Design choices I spent the most time on
 
-*Note: this MVP README was written without the tester-review pass, and the MVP is a checkpoint, not
-the final submission.*
+### 1. Open team spaces, with accounts deferred
+
+- **Decision.** There is no login. Anyone with the URL can create team spaces and read, write, edit
+  and delete notes in them. Teams organize notes; they are not security boundaries.
+- **Why.** The assignment let me choose the scope, and a correct, deployed core mattered more than
+  an auth system built in a hurry. The schema and API are shaped so accounts can be added later
+  without breaking clients (optional tokens, then private teams; see "No accounts in the MVP").
+- **Tradeoff.** Anyone can edit or delete anything. Two mitigations: optimistic concurrency (next
+  item) stops silent overwrites, and deletes go to a trash anyone can restore from. The public demo
+  resets on every deploy and the README says so plainly.
+- **Rejected.** Shared secrets per team (more moving parts, and the secret still ends up in every
+  client); building passwords and sessions first (a lot of surface area for little demonstrated value).
+
+### 2. Optimistic concurrency with `ETag` / `If-Match`
+
+- **Decision.** Each note has a `version`. It is returned as the `ETag`, `PATCH` must send it back
+  in `If-Match` (428 if absent, 412 if stale or malformed), and the write is one conditional
+  `UPDATE ... WHERE id = :id AND version = :expected ... RETURNING`.
+- **Why.** With no accounts, many anonymous people may edit the same note. This prevents silent lost
+  updates without locks or CRDTs, and because the check and the write are a single SQL statement, two
+  racing edits cannot both succeed. The response is built from the `RETURNING` row, so it always
+  describes the caller's own write.
+- **Tradeoff.** Clients must handle 412 (re-fetch, merge, retry), and requiring the header is
+  friction for casual scripts. `If-Match: *` is available for callers who really want last write wins.
+- **Rejected.** Last-write-wins (silently loses edits), pessimistic locks (need lock expiry and
+  cleanup), CRDTs or operational transforms (far too much for this scope).
+
+### 3. Soft delete (trash) instead of hard delete
+
+- **Decision.** `DELETE /notes/{id}` sets `deleted_at`; the note disappears from every normal read, is
+  listed in the team's trash, and `POST /notes/{id}/restore` brings it back with a bumped `version`.
+  All "active note" queries go through a single repository helper so none can forget the filter.
+- **Why.** In an open system a stray or malicious `DELETE` must be recoverable. Restore bumps the
+  version, so an `ETag` captured before the delete cannot be used to overwrite after it.
+- **Tradeoff.** Trashed notes accumulate: there is no permanent delete or automatic purge yet (deleting
+  the team still removes everything). Every new query has to respect the filter.
+- **Rejected.** Hard delete (unrecoverable in an open system); full version history (a much larger
+  feature than this problem needs).
+
+## Other decisions
+
+- **UUIDs** for all IDs, so IDs do not leak counts and can be generated without coordination.
+- **Errors are `application/problem+json`** (RFC 9457) everywhere, including 404 and 405 for unknown
+  routes, so clients parse one error shape.
+- **SQLite** (WAL, foreign keys on) with Alembic migrations: zero setup locally. The Render demo's disk is
+  ephemeral, so the demo resets on every deploy and reseeds itself at startup.
+- **Layering is router to repository** with no service layer. There is little business logic beyond
+  the concurrency and trash rules, so a third layer would be ceremony.
+- **Playwright's `APIRequestContext`** for end-to-end tests: black-box HTTP against a real server,
+  locally or against Render, with no browser needed.
+
+## What I'd change, add or stop doing with more time
+
+**Change**
+
+- Move to Postgres on a persistent hosted database instead of SQLite on an ephemeral disk.
+
+**Add**
+
+- Optional user accounts with API tokens, then private teams with membership and roles, as sketched
+  above.
+- Tags, keyset (cursor) pagination with sorting, and full-text search. The response envelope already
+  has `next_cursor` and `tags` so these can be added without breaking clients.
+- Rate limiting and abuse protection for the public API.
+- Version history, an automatic purge of old trash, and observability (metrics, structured logs).
+
+**Stop**
+
+- Leaving the public demo fully writable by anyone.
+- Possibly the mandatory `If-Match` for clients that would rather accept last write wins.
+
+## How this was built and what is verified
+
+Each task was one commit. For M1 to M6 a coder sub-agent implemented the task and wrote Playwright
+e2e tests, while a separate tester sub-agent wrote hidden unit tests first, proved they failed on the
+code before the task, and then checked the coder's work. That loop caught real bugs, for example a
+race where `If-Match: *` could return 412 and a response that could describe another writer's
+update. M3's first deploy also failed because Render runs the plain `alembic` command, which the
+tests (which used `python -m alembic`) did not exercise; it was fixed in a follow-up commit.
+
+To be clear about the end state: **M7 (seed script) and M8 (this README) were committed without the
+tester review**, the GitHub Actions results for M6 to M8 were not checked, and the Render deploys for
+M5 to M8 were not verified. Treat anything after M4 as less verified than the rest.
+
+*The "Add" items above (tags, pagination, search, accounts) are not implemented. This is a working,
+deployed MVP, not the full plan.*
