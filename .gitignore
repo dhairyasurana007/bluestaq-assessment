@@ -9,4 +9,5 @@ __pycache__/
 .coverage
 htmlcov/
 tests/e2e/.server.log
+.claude/worktrees/
 .env

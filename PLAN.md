@@ -33,7 +33,7 @@ Original assignment: deliver a runnable REST service and README in a version-con
 | Python in CI / Render | `python` (Linux) |
 | GitHub CLI | `gh` 2.93, logged in as `dhairyasurana007` |
 | GitHub repo | `dhairyasurana007/bluestaq-assessment` (public, already created and set as `origin`) |
-| Render URL | `RENDER_URL` = *fill in right after M0 (user connects Render)*: `https://<service>.onrender.com` |
+| Render URL | `RENDER_URL` = `https://team-notes-api.onrender.com` |
 | Docker | **Not installed.** Don't use it. |
 
 **Hooks:** this workspace has a "fact-forcing" hook. Before the first Bash command or file write it may block and ask you to state facts (the user's request, what the command does, and so on). State them plainly in your reply, then retry the same call. That's expected, not an error.
@@ -45,13 +45,13 @@ Original assignment: deliver a runnable REST service and README in a version-con
 |---|---|
 | GitHub repo URL | `https://github.com/dhairyasurana007/bluestaq-assessment` |
 | Render service name | `team-notes-api` |
-| RENDER_URL | *TBD (after M0)* |
+| RENDER_URL | `https://team-notes-api.onrender.com` |
 
 ### 0.5 Progress tracker
 | Phase | Task | Commit message | Done |
 |---|---|---|---|
 | MVP | M0 | `chore: bootstrap repository, minimal health app and Render blueprint` | [x] |
-| MVP | M1 | `chore: scaffold FastAPI app with unit/e2e harnesses and CI` | [ ] |
+| MVP | M1 | `chore: scaffold FastAPI app with unit/e2e harnesses and CI` | [x] |
 | MVP | M2 | `ci: gate Render deploys on passing CI checks` | [ ] |
 | MVP | M3 | `feat(teams): team spaces, database foundation and problem+json errors` | [ ] |
 | MVP | M4 | `feat(notes): note CRUD within team spaces` | [ ] |
