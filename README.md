@@ -273,8 +273,10 @@ update. M3's first deploy also failed because Render runs the plain `alembic` co
 tests (which used `python -m alembic`) did not exercise; it was fixed in a follow-up commit.
 
 To be clear about the end state: **M7 (seed script) and M8 (this README) were committed without the
-tester review**, the GitHub Actions results for M6 to M8 were not checked, and the Render deploys for
-M5 to M8 were not verified. Treat anything after M4 as less verified than the rest.
+tester review**, so they have less independent scrutiny than M1 to M6. After the last feature commit
+was pushed I checked the result: every GitHub Actions run on `main` from M3 onward was green (lint,
+unit with the 85% coverage gate, and e2e), and the live Render service reported commit `a122dc3`
+(the latest at the time) from `/health` with the seeded `Platform` and `Research` teams present.
 
 *The "Add" items above (tags, pagination, search, accounts) are not implemented. This is a working,
 deployed MVP, not the full plan.*
