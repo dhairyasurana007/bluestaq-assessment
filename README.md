@@ -263,6 +263,27 @@ overwrites, and deletes go to a trash that anyone can restore from, so a stray o
 - Leaving the public demo fully writable by anyone.
 - Possibly the mandatory `If-Match` for clients that would rather accept last write wins.
 
+## Roadmap: a deliberate tradeoff between speed and features
+
+I had limited time, so I chose depth over breadth: a smaller set of features that is correct,
+deployed and recoverable, instead of a longer feature list that is only half-working. The MVP is the
+part I was most confident I could finish well. The rest of the plan is written down but not built,
+and I would rather say so plainly than imply it exists.
+
+The next phase, in the order I would build it (the full task list is in [`PLAN.md`](PLAN.md)):
+
+1. **Tags** with a per-team namespace, and filtering notes by tag.
+2. **Cursor pagination and sorting**, so large teams can page through notes stably.
+3. **Full-text search** (SQLite FTS5) over titles and bodies.
+4. **Optional accounts and API tokens, then private teams** with membership and roles. This is
+   last on purpose: it is the largest change, and it is designed to be added without breaking the
+   open API that exists today.
+
+The order follows the same rule as the rest of the project: ship the smallest thing that is useful,
+keep it safe to edit (versioned writes, a trash), and only then widen it. The speed I gained was paid
+for with features, and, towards the end, with review: M7 and M8 were committed without the second
+set of eyes that M1 to M6 had (see below).
+
 ## How this was built and what is verified
 
 Each task was one commit. For M1 to M6 a coder sub-agent implemented the task and wrote Playwright
