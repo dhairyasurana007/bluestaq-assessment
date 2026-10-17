@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from app.config import Settings
 from app.db import make_engine, make_session_factory
 from app.errors import register_error_handlers
-from app.routers import health, notes, teams
+from app.routers import health, notes, root, teams
 
 
 @asynccontextmanager
@@ -22,6 +22,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.state.engine = make_engine(app.state.database_url)
     app.state.session_factory = make_session_factory(app.state.engine)
     register_error_handlers(app)
+    app.include_router(root.router)
     app.include_router(health.router)
     app.include_router(teams.router)
     app.include_router(notes.router)
